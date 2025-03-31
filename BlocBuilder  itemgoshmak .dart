@@ -1,11 +1,8 @@
-// goshmak ayyrmak pozmak Bloc.dart
-
+// main.dart
 import 'package:flutter/material.dart';
-import 'dart:async';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Events
+// Eventler
 abstract class ListEvent {}
 
 class AddItem extends ListEvent {
@@ -18,50 +15,37 @@ class RemoveItem extends ListEvent {
   RemoveItem(this.index);
 }
 
-class LoadItems extends ListEvent {}
-
 // States
 abstract class ListState {}
 
 class ListInitial extends ListState {}
-
-class ListLoading extends ListState {}
 
 class ListLoaded extends ListState {
   final List<String> items;
   ListLoaded(this.items);
 }
 
-// Bloc
+// BLoC
 class ListBloc extends Bloc<ListEvent, ListState> {
   ListBloc() : super(ListInitial()) {
-    on<LoadItems>(_onLoadItems);
-    on<AddItem>(_onAddItem);
-    on<RemoveItem>(_onRemoveItem);
-  }
-
-  Future<void> _onLoadItems(LoadItems event, Emitter<ListState> emit) async {
-    emit(ListLoading());
-    await Future.delayed(Duration(seconds: 2)); // Fake API call
-    emit(ListLoaded(["Item 1", "Item 2", "Item 3"]));
-  }
-
-  void _onAddItem(AddItem event, Emitter<ListState> emit) {
-    if (state is ListLoaded) {
-      final items = List<String>.from((state as ListLoaded).items)
-        ..add(event.item);
-      emit(ListLoaded(items));
-    }
-  }
-
-  void _onRemoveItem(RemoveItem event, Emitter<ListState> emit) {
-    if (state is ListLoaded) {
-      final items = List<String>.from((state as ListLoaded).items);
-      if (event.index >= 0 && event.index < items.length) {
-        items.removeAt(event.index);
-        emit(ListLoaded(items));
+    // Event handler-ler
+    on<AddItem>((event, emit) {
+      if (state is ListLoaded) {
+        final updatedItems = List<String>.from((state as ListLoaded).items)
+          ..add(event.item);
+        emit(ListLoaded(updatedItems));
+      } else {
+        emit(ListLoaded([event.item]));
       }
-    }
+    });
+
+    on<RemoveItem>((event, emit) {
+      if (state is ListLoaded) {
+        final updatedItems = List<String>.from((state as ListLoaded).items);
+        updatedItems.removeAt(event.index);
+        emit(ListLoaded(updatedItems));
+      }
+    });
   }
 }
 
@@ -70,12 +54,10 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ListBloc()..add(LoadItems()),
+      create: (_) => ListBloc(),
       child: MaterialApp(home: ListPage()),
     );
   }
@@ -84,19 +66,17 @@ class MyApp extends StatelessWidget {
 class ListPage extends StatelessWidget {
   final TextEditingController _controller = TextEditingController();
 
-  ListPage({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Advanced BLoC Example')),
+      appBar: AppBar(title: Text('BlocBuilder with List')),
       body: Column(
         children: [
           Expanded(
             child: BlocBuilder<ListBloc, ListState>(
               builder: (context, state) {
-                if (state is ListLoading) {
-                  return Center(child: CircularProgressIndicator());
+                if (state is ListInitial) {
+                  return Center(child: Text('Press Add to add an item.'));
                 } else if (state is ListLoaded) {
                   return ListView.builder(
                     itemCount: state.items.length,
@@ -105,16 +85,15 @@ class ListPage extends StatelessWidget {
                         title: Text(state.items[index]),
                         trailing: IconButton(
                           icon: Icon(Icons.delete),
-                          onPressed:
-                              () => context.read<ListBloc>().add(
-                                RemoveItem(index),
-                              ),
+                          onPressed: () {
+                            context.read<ListBloc>().add(RemoveItem(index));
+                          },
                         ),
                       );
                     },
                   );
                 }
-                return Center(child: Text('Press button to load items'));
+                return Center(child: CircularProgressIndicator());
               },
             ),
           ),
@@ -132,8 +111,9 @@ class ListPage extends StatelessWidget {
                   icon: Icon(Icons.add),
                   onPressed: () {
                     if (_controller.text.isNotEmpty) {
+                      // ListBloc-a yeni element goşmak
                       context.read<ListBloc>().add(AddItem(_controller.text));
-                      _controller.clear();
+                      _controller.clear(); // Input alanını boşaltmak
                     }
                   },
                 ),

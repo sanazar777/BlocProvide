@@ -1,26 +1,9 @@
-// goshmak ayyrmak pozmak Bloc.dart
-
+// cubit.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 
-import 'package:flutter_bloc/flutter_bloc.dart';
-
-// Events
-abstract class ListEvent {}
-
-class AddItem extends ListEvent {
-  final String item;
-  AddItem(this.item);
-}
-
-class RemoveItem extends ListEvent {
-  final int index;
-  RemoveItem(this.index);
-}
-
-class LoadItems extends ListEvent {}
-
-// States
+// Cubit State
 abstract class ListState {}
 
 class ListInitial extends ListState {}
@@ -32,33 +15,28 @@ class ListLoaded extends ListState {
   ListLoaded(this.items);
 }
 
-// Bloc
-class ListBloc extends Bloc<ListEvent, ListState> {
-  ListBloc() : super(ListInitial()) {
-    on<LoadItems>(_onLoadItems);
-    on<AddItem>(_onAddItem);
-    on<RemoveItem>(_onRemoveItem);
-  }
+// Cubit
+class ListCubit extends Cubit<ListState> {
+  ListCubit() : super(ListInitial());
 
-  Future<void> _onLoadItems(LoadItems event, Emitter<ListState> emit) async {
+  Future<void> loadItems() async {
     emit(ListLoading());
     await Future.delayed(Duration(seconds: 2)); // Fake API call
     emit(ListLoaded(["Item 1", "Item 2", "Item 3"]));
   }
 
-  void _onAddItem(AddItem event, Emitter<ListState> emit) {
+  void addItem(String item) {
     if (state is ListLoaded) {
-      final items = List<String>.from((state as ListLoaded).items)
-        ..add(event.item);
+      final items = List<String>.from((state as ListLoaded).items)..add(item);
       emit(ListLoaded(items));
     }
   }
 
-  void _onRemoveItem(RemoveItem event, Emitter<ListState> emit) {
+  void removeItem(int index) {
     if (state is ListLoaded) {
       final items = List<String>.from((state as ListLoaded).items);
-      if (event.index >= 0 && event.index < items.length) {
-        items.removeAt(event.index);
+      if (index >= 0 && index < items.length) {
+        items.removeAt(index);
         emit(ListLoaded(items));
       }
     }
@@ -75,7 +53,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ListBloc()..add(LoadItems()),
+      create: (context) => ListCubit()..loadItems(),
       child: MaterialApp(home: ListPage()),
     );
   }
@@ -89,11 +67,11 @@ class ListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Advanced BLoC Example')),
+      appBar: AppBar(title: Text('Advanced Cubit Example')),
       body: Column(
         children: [
           Expanded(
-            child: BlocBuilder<ListBloc, ListState>(
+            child: BlocBuilder<ListCubit, ListState>(
               builder: (context, state) {
                 if (state is ListLoading) {
                   return Center(child: CircularProgressIndicator());
@@ -106,9 +84,7 @@ class ListPage extends StatelessWidget {
                         trailing: IconButton(
                           icon: Icon(Icons.delete),
                           onPressed:
-                              () => context.read<ListBloc>().add(
-                                RemoveItem(index),
-                              ),
+                              () => context.read<ListCubit>().removeItem(index),
                         ),
                       );
                     },
@@ -132,7 +108,7 @@ class ListPage extends StatelessWidget {
                   icon: Icon(Icons.add),
                   onPressed: () {
                     if (_controller.text.isNotEmpty) {
-                      context.read<ListBloc>().add(AddItem(_controller.text));
+                      context.read<ListCubit>().addItem(_controller.text);
                       _controller.clear();
                     }
                   },
